@@ -1,0 +1,50 @@
+#include <iostream>
+
+
+using namespace std;
+
+class Station {
+public:
+    int ticket_cost, seats_count, tickets_sold;
+    string station_name;
+
+
+    Station(string s, int c, int n, int p): station_name(s), ticket_cost(c), seats_count(n), tickets_sold(p){
+    }
+
+    string GetName() {
+        return station_name;
+    }
+
+    int GetCost() {
+        return ticket_cost;
+    }
+
+    int GetSeatsCount() {
+        return seats_count;
+    }
+
+    int GetSold() {
+        return tickets_sold;
+    }
+
+    void SetName(string name) {
+        station_name = name;
+    }
+
+    void SetCost(int cost) {
+        ticket_cost = cost;
+    }
+
+    void SetSeatsCount(int count) {
+        seats_count = count;
+    }
+
+    void SetSold(int sold) {
+        tickets_sold = sold;
+    }
+
+    int GetCostTicketsNotSold() {
+        return ((seats_count - tickets_sold) * ticket_cost);
+    }
+};
