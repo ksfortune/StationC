@@ -4,11 +4,10 @@
 using namespace std;
 
 class Station {
-public:
+private:
     int ticket_cost, seats_count, tickets_sold;
     string station_name;
-
-
+public:
     Station(string s, int c, int n, int p): station_name(s), ticket_cost(c), seats_count(n), tickets_sold(p){
     }
 
