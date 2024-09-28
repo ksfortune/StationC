@@ -1,49 +1,250 @@
 #include <iostream>
+#include <map>
+#include <vector>
+#pragma once
 
 
 using namespace std;
 
+struct Date {
+    int day;
+    int month;
+    int year;
+    int hour;
+    int minute;
+};
+Date TODAY = { 27, 9, 2024, 18, 34 };
+
+bool date_validation(Date date) {
+    //date
+    if (date.month > 12 || date.month < 1 || date.day < 1)
+        return false;
+    if (date.month == 2) {
+        if (((date.year % 4 == 0 && date.year % 100 != 0) || date.year % 400 == 0) && date.day > 29)
+            return false;
+        if (!((date.year % 4 == 0 && date.year % 100 != 0) || date.year % 400 == 0) && date.day > 28)
+            return false;
+    }
+    else {
+        for (int i = 0; i < 6; i++)
+        {
+            if (date.month == 1 + 2 * i && date.day > 31)
+                return false;
+            if (date.month == 2 * i && date.day > 30)
+                return false;
+        }
+    }
+    if (date.year < TODAY.year || (date.month < TODAY.month && date.year == TODAY.year)
+        || (date.day < TODAY.day && date.year == TODAY.year && date.month == TODAY.month))
+        return false;
+    //time
+    if (date.hour > 23 || date.hour < 0) return false;
+    if (date.minute > 59 || date.minute < 0) return false;
+    if (date.day == TODAY.day && date.year == TODAY.year && date.month == TODAY.month) {
+        if (date.hour < TODAY.hour) return false;
+        if (date.hour == TODAY.hour && date.minute < TODAY.minute) return false;
+    }
+    return true;
+}
+
+class Wagon;
+
 class Station {
 private:
-    int ticket_cost, seats_count, tickets_sold;
-    string station_name;
+    int station_id;
+    string station_name, location;
+    string additional_info;
+    
 public:
-    Station(string s, int c, int n, int p): station_name(s), ticket_cost(c), seats_count(n), tickets_sold(p){
+    Station(string name, string place, int number): station_name(name), location(place){
+        station_id = number;
     }
 
-    string GetName() {
+    string get_name() {
         return station_name;
     }
 
-    int GetCost() {
-        return ticket_cost;
+    string get_location() {
+        return location;
     }
 
-    int GetSeatsCount() {
-        return seats_count;
+    string get_info() {
+        return additional_info;
     }
-
-    int GetSold() {
-        return tickets_sold;
+    
+    int get_station_id() {
+        return station_id;
     }
-
-    void SetName(string name) {
+ 
+    void set_new_name(string name) {
         station_name = name;
     }
 
-    void SetCost(int cost) {
-        ticket_cost = cost;
+    void set_new_location(string loc) {
+        location = loc;
     }
 
-    void SetSeatsCount(int count) {
-        seats_count = count;
+    void set_info(string info) {
+        additional_info = info;
     }
-
-    void SetSold(int sold) {
-        tickets_sold = sold;
-    }
-
-    int GetCostTicketsNotSold() {
-        return ((seats_count - tickets_sold) * ticket_cost);
-    }
+ 
 };
+
+
+class Train {
+protected:
+    string train_name, route;
+    int wagons_count; //0 - пассажирские, 1 - скоростной, 2 - фирменные
+    map <string, Date> schedule;
+    vector <Wagon> wagons;
+
+public:
+    Train(string name, string place, int w) : train_name(name), route(place), wagons_count(w) {}
+
+    string get_name() {
+        return train_name;
+    }
+
+    string get_route() {
+        return route;
+    }
+
+    int get_wagons_count() {
+        return wagons_count;
+    }
+
+    void set_new_name(string name) {
+        train_name = name;
+    }
+
+    void set_new_route(string loc) {
+        route = loc;
+    }
+
+    void set_new_wag_count(int w) {
+        wagons_count = w;
+    }
+
+    int add_to_schedule(string name, Date date) {
+        if (date_validation(date)) {
+            schedule.insert({ name, date });
+            return 1;
+        }
+        else return 0;
+    }
+
+    bool add_wagon(Wagon* w)
+    {
+        if ((*w).get_number() <= wagons_count && (*w).get_number() > 0)
+        {
+            wagons.push_back(*w);
+            return true;
+        }
+        return false;
+    }
+
+    map <string, Date> get_schedule() {
+        return schedule;
+    }
+
+};
+
+/*class Passenger_Train : public Train {
+private:
+    int cost;
+
+};*/
+
+class Wagon : public Train {
+public:
+    
+    int number, places, occupied;
+    int matrix[100];
+
+    Wagon(int num, int p, Train* train) : {
+        Train* train;
+        number = num;
+        places = p;
+        occupied = 0;
+    }
+
+    int get_number() {
+        return number;
+    }
+
+    void set_number(int n) {
+        number = n;
+    }
+
+    int get_places() {
+        return places;
+    }
+
+    void set_places(int n) {
+        places = n;
+    }
+
+    int get_occupied_places() {
+        return occupied;
+    }
+
+
+    bool occupie_place(int place)
+    {
+        if (matrix[place] != 0)
+            return false;
+        matrix[place]++;
+        occupied++;
+        return true;
+    }
+
+
+};
+
+
+
+int main()
+{
+    map <string, Station> stations;
+    map <string, Train> trains;
+
+    srand(0);
+    stations.insert({ "Perm2", Station("Perm 2", "Russia, Permskii krai, Sochi", stations.size()) });
+    stations.insert({ "EkatPass", Station("Ekaterinburg Passajirski", "Russia, Sverdlovski krai, Ekaterinburg", stations.size()) });
+    stations.insert({ "Kungur", Station("Kungur", "Russia, Permskii krai, Kungur", stations.size()) });
+    stations.insert({ "LadojVokz", Station("Ladojskii vokzal", "Russia, Leningradskaya oblast', Sankt-Peterburg", stations.size()) });
+    stations.insert({ "Viborg", Station("Viborg", "Russia, Leningradskaya oblast', Viborg", stations.size()) });
+
+    //Работа с обращением и редактированием станций
+    stations.at("Perm2").set_new_location("Russia, Permskii krai, Perm");
+    cout << "Welcome to station " << stations.at("Perm2").get_name() << " located in " << stations.at("Perm2").get_location();
+
+    cout << "\n\n";
+    //Работа с обращением и редактированием поездов
+    trains.insert({ "782R", Train("782R", "Moskva:Omsk", 7) });
+    Date departure1 = { 30, 9, 2024, 18, 30 };
+    Date departure2 = { 29, 9, 2024, 11, 55 };
+
+    trains.at("782R").add_to_schedule("EkatPass", departure1);
+
+    if (trains.at("782R").add_to_schedule("Perm2", departure2))
+    {
+        cout << "The train " << trains.at("782R").get_name() << " on route " << trains.at("782R").get_route() << " will arrive on next stations:\n";
+        map <string, Date> train_schedule = trains.at("782R").get_schedule();
+        for (map<string, Date>::iterator k = train_schedule.begin(); k != train_schedule.end(); ++k)
+        {
+            cout << (k->second).day << "-" << (k->second).month << "-" << (k->second).year << " " <<
+                (k->second).hour << ":" << (k->second).minute <<" --- " << stations.at(k->first).get_name() << "\n";
+        }
+
+    }
+
+    //Работа с обращением и редактированием вагонов
+    Wagon new_wagon(4, 36);
+    trains.at("782R").add_wagon(&new_wagon);
+
+    cout << new_wagon.get_name();
+    cout << new_wagon.get_number();
+
+    return 0;
+}
