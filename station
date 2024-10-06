@@ -1,8 +1,6 @@
 #include <iostream>
 #include <map>
 #include <vector>
-#pragma once
-
 
 using namespace std;
 
@@ -16,7 +14,6 @@ struct Date {
 Date TODAY = { 27, 9, 2024, 18, 34 };
 
 bool date_validation(Date date) {
-    //date
     if (date.month > 12 || date.month < 1 || date.day < 1)
         return false;
     if (date.month == 2) {
@@ -26,8 +23,7 @@ bool date_validation(Date date) {
             return false;
     }
     else {
-        for (int i = 0; i < 6; i++)
-        {
+        for (int i = 0; i < 6; i++) {
             if (date.month == 1 + 2 * i && date.day > 31)
                 return false;
             if (date.month == 2 * i && date.day > 30)
@@ -37,7 +33,6 @@ bool date_validation(Date date) {
     if (date.year < TODAY.year || (date.month < TODAY.month && date.year == TODAY.year)
         || (date.day < TODAY.day && date.year == TODAY.year && date.month == TODAY.month))
         return false;
-    //time
     if (date.hour > 23 || date.hour < 0) return false;
     if (date.minute > 59 || date.minute < 0) return false;
     if (date.day == TODAY.day && date.year == TODAY.year && date.month == TODAY.month) {
@@ -54,9 +49,9 @@ private:
     int station_id;
     string station_name, location;
     string additional_info;
-    
+
 public:
-    Station(string name, string place, int number): station_name(name), location(place){
+    Station(string name, string place, int number) : station_name(name), location(place) {
         station_id = number;
     }
 
@@ -71,11 +66,11 @@ public:
     string get_info() {
         return additional_info;
     }
-    
+
     int get_station_id() {
         return station_id;
     }
- 
+
     void set_new_name(string name) {
         station_name = name;
     }
@@ -87,16 +82,15 @@ public:
     void set_info(string info) {
         additional_info = info;
     }
- 
-};
 
+};
 
 class Train {
 protected:
     string train_name, route;
-    int wagons_count; //0 - пассажирские, 1 - скоростной, 2 - фирменные
+    int wagons_count;
     map <string, Date> schedule;
-    vector <Wagon> wagons;
+    vector <Wagon*> wagons; // Храним ссылки на вагоны
 
 public:
     Train(string name, string place, int w) : train_name(name), route(place), wagons_count(w) {}
@@ -125,6 +119,10 @@ public:
         wagons_count = w;
     }
 
+    void add_new_wagon(Wagon* wag) {
+        wagons.push_back(wag);
+    }
+
     int add_to_schedule(string name, Date date) {
         if (date_validation(date)) {
             schedule.insert({ name, date });
@@ -133,36 +131,29 @@ public:
         else return 0;
     }
 
-    bool add_wagon(Wagon* w)
-    {
-        if ((*w).get_number() <= wagons_count && (*w).get_number() > 0)
-        {
-            wagons.push_back(*w);
-            return true;
-        }
-        return false;
-    }
+    bool add_wagon(Wagon& w);
 
     map <string, Date> get_schedule() {
         return schedule;
     }
 
+    Wagon* get_wagon(int index) {
+        if (index >= 0 && index < wagons.size()) {
+            return wagons[index];
+        }
+        return nullptr;
+    }
+
 };
 
-/*class Passenger_Train : public Train {
-private:
-    int cost;
-
-};*/
 
 class Wagon : public Train {
 public:
-    
+
     int number, places, occupied;
     int matrix[100];
 
-    Wagon(int num, int p, Train* train) : {
-        Train* train;
+    Wagon(int num, int p) : Train(train_name, route, wagons_count) {
         number = num;
         places = p;
         occupied = 0;
@@ -188,7 +179,6 @@ public:
         return occupied;
     }
 
-
     bool occupie_place(int place)
     {
         if (matrix[place] != 0)
@@ -197,11 +187,15 @@ public:
         occupied++;
         return true;
     }
-
-
 };
 
-
+bool Train::add_wagon(Wagon& w) {
+    if (w.get_number() <= wagons_count && w.get_number() > 0) {
+        wagons.push_back(&w);
+        return true;
+    }
+    return false;
+}
 
 int main()
 {
@@ -215,12 +209,10 @@ int main()
     stations.insert({ "LadojVokz", Station("Ladojskii vokzal", "Russia, Leningradskaya oblast', Sankt-Peterburg", stations.size()) });
     stations.insert({ "Viborg", Station("Viborg", "Russia, Leningradskaya oblast', Viborg", stations.size()) });
 
-    //Работа с обращением и редактированием станций
     stations.at("Perm2").set_new_location("Russia, Permskii krai, Perm");
     cout << "Welcome to station " << stations.at("Perm2").get_name() << " located in " << stations.at("Perm2").get_location();
 
     cout << "\n\n";
-    //Работа с обращением и редактированием поездов
     trains.insert({ "782R", Train("782R", "Moskva:Omsk", 7) });
     Date departure1 = { 30, 9, 2024, 18, 30 };
     Date departure2 = { 29, 9, 2024, 11, 55 };
@@ -234,17 +226,23 @@ int main()
         for (map<string, Date>::iterator k = train_schedule.begin(); k != train_schedule.end(); ++k)
         {
             cout << (k->second).day << "-" << (k->second).month << "-" << (k->second).year << " " <<
-                (k->second).hour << ":" << (k->second).minute <<" --- " << stations.at(k->first).get_name() << "\n";
+                (k->second).hour << ":" << (k->second).minute << " --- " << stations.at(k->first).get_name() << "\n";
         }
 
     }
 
-    //Работа с обращением и редактированием вагонов
-    Wagon new_wagon(4, 36);
-    trains.at("782R").add_wagon(&new_wagon);
+    Wagon wagon1(1, 50);
+    Wagon wagon2(2, 40);
 
-    cout << new_wagon.get_name();
-    cout << new_wagon.get_number();
+    if ((trains.at("782R").add_wagon(wagon1)) == 1)
+        cout << wagon1.get_number() << " wagon had been successfully added to " << wagon1.get_name() << " train.\n";
+    else
+        cout << wagon1.get_number() << " wagon wasn't added to " << wagon1.get_name() << " train.\n";
+    if ((trains.at("782R").add_wagon(wagon2)) == 1)
+        cout << wagon2.get_number() << " wagon had been successfully added to " << wagon2.get_name() << " train.\n";
+    else
+        cout << wagon2.get_number() << " wagon wasn't added to " << wagon2.get_name() << " train.\n";
 
+    cout << "The train number " << trains.at("782R").get_name() << " has " << trains.at("782R").get_wagon(0)->get_places() << " places in the " << trains.at("782R").get_wagon(0)->get_number() << " wagon.\n";
     return 0;
 }
