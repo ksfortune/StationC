@@ -1,10 +1,23 @@
 #include <iostream>
+#include <string>
+#include <windows.h>  
+#include <stdio.h> 
+#include <conio.h>
 #include <map>
 #include <vector>
-#include <string>
+#include <algorithm>
 
 
 using namespace std;
+HANDLE hStdout;
+
+
+char BufRus[256];
+char* Rus(const char* text)
+{
+    CharToOemA(text, BufRus);
+    return BufRus;
+}
 
 struct Date {
     int day;
@@ -13,361 +26,77 @@ struct Date {
     int hour;
     int minute;
 };
-Date TODAY = { 27, 9, 2024, 18, 34 };
-int TICKETS = 0;
 
-bool date_validation(Date date, int type) {
-    if (date.month > 12 || date.month < 1 || date.day < 1)
+enum Ticket_Type {
+    base = 100,
+    student = 50,
+    disable = 0,
+    veteran = 0,
+    pensioner = 50
+
+};
+int USER_COUNT = 1000, TICKETS = 1000;
+
+unsigned int DJBHash(const char* str, unsigned int length)
+{
+    unsigned int hash = 5371;
+    unsigned int i = 0;
+
+    for (i = 0; i < length; ++str, ++i)
+        hash = ((hash << 8) + hash) + (*str);
+
+    return hash;
+}
+
+bool check_date_validation(string date) {
+    if (date.size() != 10 || std::count(date.begin(), date.end(), '.') != 2) return false;
+    int d, m, y;
+    try {
+        d = stoi(date.substr(0, 2));
+        m = stoi(date.substr(3, 2));
+        y = stoi(date.substr(6, 4));
+    }
+    catch (...) {
         return false;
-    if (date.month == 2) {
-        if (((date.year % 4 == 0 && date.year % 100 != 0) || date.year % 400 == 0) && date.day > 29)
-            return false;
-        if (!((date.year % 4 == 0 && date.year % 100 != 0) || date.year % 400 == 0) && date.day > 28)
-            return false;
+    }
+    if (m > 12 || m < 1 || d < 1)
+        return false;
+    if (m == 2) {
+        if ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0)
+        {
+            if (d > 29) return false;
+        }
+        else {
+            if (d > 28) return false;
+        }
     }
     else {
         for (int i = 0; i < 6; i++) {
-            if (date.month == 1 + 2 * i && date.day > 31)
+            if (m == 1 + 2 * i && d > 31)
                 return false;
-            if (date.month == 2 * i && date.day > 30)
+            if (m == 2 * i && d > 30)
                 return false;
         }
-    }
-    if (type == 1) return true;
-    if (date.year < TODAY.year || (date.month < TODAY.month && date.year == TODAY.year)
-        || (date.day < TODAY.day && date.year == TODAY.year && date.month == TODAY.month))
-        return false;
-    if (date.hour > 23 || date.hour < 0) return false;
-    if (date.minute > 59 || date.minute < 0) return false;
-    if (date.day == TODAY.day && date.year == TODAY.year && date.month == TODAY.month) {
-        if (date.hour < TODAY.hour) return false;
-        if (date.hour == TODAY.hour && date.minute < TODAY.minute) return false;
     }
     return true;
 }
 
-class Wagon;
-
-class Station {
-private:
-    int station_id;
-    string station_name, location;
-    string additional_info;
-
-public:
-    Station(string name, string place, int number) : station_name(name), location(place) {
-        station_id = number;
+bool check_document_validation(string document) {
+    if (document.size() != 11 || std::count(document.begin(), document.end(), ' ') != 1) return false;
+    int s, n;
+    try {
+        s = stoi(document.substr(0, 4));
+        n = stoi(document.substr(5, 6));
     }
-
-    string get_name() {
-        return station_name;
-    }
-
-    string get_location() {
-        return location;
-    }
-
-    string get_info() {
-        return additional_info;
-    }
-
-    int get_station_id() {
-        return station_id;
-    }
-
-    void set_new_name(string name) {
-        station_name = name;
-    }
-
-    void set_new_location(string loc) {
-        location = loc;
-    }
-
-    void set_info(string info) {
-        additional_info = info;
-    }
-
-};
-
-class Train {
-protected:
-    string train_name, route;
-    int wagons_count;
-    map <string, Date> schedule;
-    vector <string> locations;
-    vector <Wagon> wagons;
-
-public:
-    Train(string name, string place, int w) : train_name(name), route(place), wagons_count(w) {
-        add_wagons();
-    }
-
-    string get_name() {
-        return train_name;
-    }
-
-    string get_route() {
-        return route;
-    }
-
-    int get_wagons_count() {
-        return wagons_count;
-    }
-
-    int get_places_count();
-
-    int get_free_places_count();
-
-    void draw_matrix();
-
-    void set_new_name(string name) {
-        train_name = name;
-    }
-
-    void set_new_route(string loc) {
-        route = loc;
-    }
-
-    void set_new_wag_count(int w) {
-        wagons_count = w;
-    }
-
-    void add_new_wagon(Wagon wag);
-
-    int add_to_schedule(string name, Date date) {
-        if (date_validation(date, 0)) {
-            locations.push_back(name);
-            schedule.insert({ name, date });
-            return 1;
-        }
-        else return 0;
-    }
-
-    bool add_wagon(Wagon w);
-    void add_wagons();
-
-    vector <string> get_schedule() {
-        return locations;
-    }
-
-    bool check_if_station_passes(string station) {
-        return std::find(locations.begin(), locations.end(), station) != locations.end();
-    }
-
-
-    Date get_location_time(string location) {
-        return schedule.at(location);
-    }
-
-    Wagon get_wagon(int index);
-
-};
-
-
-class Wagon : public Train {
-public:
-
-    int number, places, occupied;
-    int matrix[100];
-
-    Wagon(int num, int p) : Train(train_name, route, wagons_count) {
-        number = num;
-        places = p;
-        occupied = 0;
-    }
-
-    int get_number() {
-        return number;
-    }
-
-    void set_number(int n) {
-        number = n;
-    }
-
-    int get_places() {
-        return places;
-    }
-
-    bool check_if_place_free(int p0) {
-        if (matrix[p0] == 0)
-            return true;
+    catch (...) {
         return false;
     }
-
-    void set_places(int n) {
-        places = n;
-    }
-
-    void draw_wagon() {
-        int i = 1, c = 1;
-        cout << c << " ";
-        while (i <= places) {
-            if (matrix[i] == 0)
-                cout << "0";
-            else
-                cout << "x";
-            if (i % 4 == 0 && i < places)
-            {
-                c++;
-                cout << '\n' << c << " ";
-            }
-            i++;
-        }
-    }
-
-    int get_occupied_places() {
-        return occupied;
-    }
-
-    bool occupie_place(int place)
-    {
-        if (place > places)
-            return false;
-        if (matrix[place] != 0)
-            return false;
-        matrix[place]++;
-        occupied++;
-        return true;
-    }
-};
-
-enum Ticket_Type {
-    base, // полная цена
-    student, // пол цены
-    child, // бесплатно
-    disable, // бесплатно
-    veteran, // бесплатно
-    eldery // пол цены
-
-};
-
-class Ticket {
-public:
-    int ticket_number, wagon, place_number, cost;
-    string train_name, from, to;
-
-    //Ticket(int n, int w, int p, string t, int c) : ticket_number(n), wagon(w), place_number(p), train_name(t), cost(c) {};
-    Ticket(int w, int p, string t, int c, string f, string t2) :  // Добавлена инициализация from и to 
-        wagon(w), place_number(p), train_name(t), cost(c), from(f), to(t2) {
-        ticket_number = ++TICKETS;
-        TICKETS++;
-    };
-    int get_ticket_number() {return ticket_number;}
-    int get_wagon_number() {return wagon;}
-    int get_place_number() {return place_number;}
-    string get_train_name() {return train_name;}
-    int get_cost() const { return cost; }
-
-    string get_from() { return from; }
-    string get_to() { return to; }
-
-    
-    void set_ticket_number(int ticket) {ticket_number = ticket;}
-    void set_wagon_number(int wag) {wagon = wag;}
-    void set_place_number(int n) {place_number = n;}
-    void set_train_name(string name) {train_name = name;}
-    void set_ticket_cost(int c) { cost = c; }
-    void set_from_to(string f, string t) { from = f; to = t; }
-
-
-};
-
-class User{
-public:
-    string name, surname, document;
-    Ticket_Type type;
-    Date birthday;
-    vector <Ticket> tickets;
-    User(string n, string s, Date d, string p, Ticket_Type tp){
-        name = n;
-        surname = s;
-        document = p;
-        birthday = d;
-        type = tp;
-    };
-   
-
-    string get_name() { return  name + " " + surname; }
-    Date get_birthday() { return birthday; }
-    vector <Ticket> get_tickets() { return tickets; }
-    void add_ticket(const Ticket& ticket)
-    {
-        tickets.push_back(ticket);
-    }
-    int get_ticket_cost(const Ticket& ticket) {
-        int cost = ticket.get_cost();
-        switch (type) {
-        case base: cost;
-        case student: return cost / 2;
-        case child: return 0;
-        case disable: return 0;
-        case veteran: return 0;
-        case eldery: return cost / 2;
-        }
-    }
-    Ticket_Type get_ticket_type() { return type; }
-    void set_ticket_type(Ticket_Type c) { type = c; }
-
-
-};
-
-Date day_verryfication(string day, int type) {
-    if (day.length() != 10 || day[2] != '.' || day[5] != '.')
-        return Date{-1, -1, -1, -1, -1}; 
-   
-    int i = 0;
-    while (i < day.length()) {
-        if (!(day[i] >= '0' && day[i] <= '9') && !(day[i] == '.' && i == 2 || i == 5))
-            return Date{ -1, -1, -1, -1, -1 };;
-        i++;
-    }
-    string d = day.substr(0, 2);
-    string m = day.substr(3, 2);
-    string y = day.substr(6, 4);
-    Date bd = { stoi(d), stoi(m), stoi(y), 0, 0 };
-    if (date_validation(bd, 1) == 0) return Date{ -1, -1, -1, -1, -1 };
-    if (type == 1) return bd;
-    if (TODAY.year - bd.year > 130 || TODAY.year - bd.year < 1)
-        return Date{ -1, -1, -1, -1, -1 };;
-    return bd;
-
-
+    return true;
 }
 
-int certificate_verryfication(string certificate) {
-    if (certificate.length() != 10 || certificate[3] != '-')
-        return 0;
-    if (!(certificate[1] >= 'A' && certificate[1] <= 'Z'))
-        return 0;
-    if (!(certificate[2] >= 'A' && certificate[2] <= 'Z'))
-        return 0;
-    if (!(certificate[0] >= '0' && certificate[0] <= '9'))
-        return 0;
-    int i = 4;
-    while (i < certificate.length()) {
-        if (!(certificate[i] >= '0' && certificate[i] <= '9'))
-            return 0;
-        i++;
-    }
-    return 1;
-}
-
-int passport_verryfication(string document) {
-    if (document.length() != 11)
-        return 0;
-    int i = 0;
-    while (i < 4) {
-        if (!(document[i] >= '0' && document[i] <= '9'))
-            return 0;
-        i++;
-    }
-    i = 5;
-    while (i < document.length()) {
-        if (!(document[i] >= '0' && document[i] <= '9'))
-            return 0;
-        i++;
-    }
-    return 1;
+Date create_Date_from_string(string s, int type) {
+    if (type == 0)    return Date{ stoi(s.substr(0, 2)), stoi(s.substr(3, 2)), stoi(s.substr(6, 4)), 0, 0 };
+    if (type == 1)  return Date{ stoi(s.substr(0, 2)), stoi(s.substr(3, 2)), stoi(s.substr(6, 4)), stoi(s.substr(11, 2)), stoi(s.substr(14, 2)) };
 }
 
 Date time_between_to_times(Date d1, Date d2) {
@@ -388,339 +117,839 @@ Date time_between_to_times(Date d1, Date d2) {
     return d3;
 }
 
-bool Train::add_wagon(Wagon w) {
-    if (w.get_number() <= wagons_count && w.get_number() > 0) {
-        wagons.push_back(w);
-        return true;
+bool Check_if_greater_date(Date d1, Date d2) {
+    Date d = time_between_to_times(d1, d2);
+    if (d.year > 0) return true;
+    if (d.year == 0) {
+        if (d.month > 0) return true;
+        if (d.month == 0) {
+            if (d.day > 0) return true;
+            if (d.day == 0) {
+                if (d.hour > 0) return true;
+                if (d.hour == 0 && d.minute > 0) return true;
+            }
+        }
     }
     return false;
 }
 
-void Train::add_new_wagon(Wagon wag) {
-    wagons.push_back(wag);
-}
+class Wagon {
+private:
+    int number, places, occupied = 0;
+    vector <int> matrix;
+    string train_name;
 
-Wagon Train::get_wagon(int index)
-{
-    if (index >= 0 && index < wagons.size()) {
-        return wagons[index];
+public:
+    Wagon(string name) { train_name = name; };
+
+    int get_number() { return number; }
+    void set_number(int n) { number = n; }
+    int get_places() { return places; }
+    void set_places(int n) {
+        places = n;
+        matrix.resize(places, 0);
     }
-}
+    string get_name() const { return train_name; }
 
-void Train::draw_matrix() {
-    for (vector<Wagon>::iterator k = wagons.begin(); k != wagons.end(); ++k)
-    {
-        if (k == wagons.begin()) {
-            cout << "  ";
-            for (int i = 0; i < wagons_count; i++)
-                cout << i + 1;
+    int get_occupied_places() const { return occupied; }
+
+    void set_occupation(int n) {
+        if (n >= 1 && n <= places && matrix[n - 1] == 0) {
+            matrix[n - 1] = 1;
+            occupied++;
         }
-
-        cout << "\n  |\n";
-        k->draw_wagon();
     }
-}
 
-int Train::get_free_places_count() {
-    int sum = 0;
-    for (vector<Wagon>::iterator k = wagons.begin(); k != wagons.end(); ++k)
-        sum += k->get_occupied_places();
-    return get_places_count() - sum;
-}
-
-int Train::get_places_count() {
-    int sum = 0;
-    for (vector<Wagon>::iterator k = wagons.begin(); k != wagons.end(); ++k)
-        sum += (k)->get_places();
-    return sum;
-}
-
-void Train::add_wagons() {
-    for (int i = 0; i < wagons_count; i++) {
-        Wagon wag(i + 1, 20);
-        add_new_wagon(wag);
+    void free_place(int p0) {
+        matrix[p0 - 1] = 0;
     }
-}
+
+    int get_free_places_count() const {
+        return places - occupied;
+    }
+
+    bool check_if_place_free(int p0) const {
+        if (p0 >= 1 && p0 <= places) {
+            return matrix[p0 - 1] == 0;
+        }
+        return false;
+    }
+};
+
+class Train {
+
+protected:
+    string train_name, route;
+    int wagons_count, place_per_wag;
+    map <string, Date> schedule;
+    vector <Wagon*> wagons;
+
+public:
+    Train() = default;
+
+
+    string get_name() { return train_name; }
+    string get_route() { return route; }
+    int get_wagons_count() { return wagons_count; }
+    int get_place_count() { return place_per_wag; }
+
+
+    void set_new_name(const string& name) { train_name = name; }
+    void set_new_route(const string& loc) { route = loc; }
+    void set_new_wag_count(int w) { wagons_count = w; }
+    void set_places_per_wag(int places) { set_places_for_wagons(places); }
+
+    void add_to_schedule(const string& name, const Date& date) {
+        schedule[name] = date;
+    }
+
+    map<string, Date> get_schedule() const {
+        return schedule;
+    }
+
+    void add_new_wagon(Wagon* wag) {
+        wagons.push_back(wag);
+    }
+
+    Wagon* get_wagon(int index) {
+        if (index >= 0 && index < wagons.size()) {
+            return wagons[index];
+        }
+        throw out_of_range("Некорректный номер вагона");
+    }
+
+    Date get_location_time(string location) const {
+        return schedule.at(location);
+    }
+
+    int get_free_places_count() const {
+        int sum = 0;
+        for (Wagon* wag : wagons)
+            sum += wag->get_free_places_count();
+        return sum;
+    }
+
+    void delete_wagons() {
+        for (Wagon* wag : wagons)
+            delete wag;
+    }
+
+
+    vector<pair<string, Date>> get_sorted_schedule() {
+        vector<pair<string, Date>> sorted_pairs(schedule.begin(), schedule.end());
+
+        sort(sorted_pairs.begin(), sorted_pairs.end(), [](const auto& a, const auto& b) {
+            return !(Check_if_greater_date(a.second, b.second));  
+        });
+
+        return sorted_pairs;
+     }
+     
+
+
+    void add_wagons() {
+        for (int i = 0; i < wagons_count; ++i) {
+            Wagon* wag = new Wagon(train_name);
+            wag->set_number(i + 1);
+            wag->set_places(place_per_wag);
+            add_new_wagon(wag);
+        }
+    }
+
+    bool check_if_passes(string loc) {
+        return schedule.find(loc) != schedule.end();
+    }
+
+    void set_places_for_wagons(int p) {
+        place_per_wag = p;
+        for (Wagon* wag : wagons)
+            wag->set_places(p);
+
+    }
+
+
+
+    ~Train() { delete_wagons(); };
+
+
+};
+
+class Ticket {
+private:
+    Wagon* wagon;
+    int ticket_number, place_number;
+    string from, to;
+    Ticket_Type tp;
+
+public:
+    Ticket() {
+        ticket_number = ++TICKETS;
+        TICKETS++;
+    };
+
+    int get_ticket_number() { return ticket_number; }
+    Wagon* get_wagon() { return wagon; }
+    int get_place_number() { return place_number; }
+    int get_cost() const { return tp; }
+
+    string get_from() { return from; }
+    string get_to() { return to; }
+
+
+    void set_wagon(Wagon* wag) { wagon = wag; }
+    void set_place_number(int n) { place_number = n; }
+    void set_from_to(string f, string t) { from = f; to = t; }
+    void set_type(Ticket_Type t) { tp = t; }
+
+    ~Ticket() {};
+
+};
+
+class User {
+protected:
+    int id, password = 0;
+    string name, surname, document, username;
+    Date birthday = { 0, 0, 0, 0, 0 };
+    vector <Ticket*> tickets;
+
+public:
+    User() {
+        id = USER_COUNT;
+        USER_COUNT++;
+    };
+
+    string get_name() { return  name; }
+    string get_surname() { return  surname; }
+    string get_username() { return  username; }
+    string get_document() { return  document; }
+    Date get_birthday() { return birthday; }
+    int get_id() { return id; }
+    int hashed_password_return() { return password; }
+
+    void set_name(string nm) { name = nm; }
+    void set_surname(string nm) { surname = nm; }
+    void set_birthday(Date dt) { birthday = dt; }
+    void set_username(string u) { username = u; }
+    void set_password(string word) {
+        const char* char_array = word.c_str();
+        password = DJBHash(char_array, word.length());
+    }
+    void set_document(string doc) { document = doc; }
+
+    void add_ticket(Ticket* ticket) {
+        tickets.push_back(ticket);
+    }
+
+    vector <Ticket*> get_tickets() {
+        return tickets;
+    }
+
+    void delete_ticket(Ticket* tik) {
+        auto it = std::find(tickets.begin(), tickets.end(), tik);
+        if (it != tickets.end()) {
+            delete* it;
+            tickets.erase(it);
+        }
+    }
+
+
+};
+
+class Admin : public User {
+private:
+    Admin() {
+        username = "ksfortune";
+        set_password("1503");
+        password = hashed_password_return();
+        id = 0;
+        name = "Kseniya";
+        surname = "Balba";
+        document = "1111 111111";
+        birthday = { 11, 06, 2005, 0, 0 };
+    }
+    static Admin* instance;
+
+
+public:
+    static Admin* get_instance() {
+        if (instance == nullptr) {
+            instance = new Admin();
+        }
+        return instance;
+    }
+
+
+    // Удаление копирования и присваивания
+    Admin(const Admin&) = delete;
+    Admin& operator=(const Admin&) = delete;
+};
+Admin* Admin::instance = nullptr;
 
 
 
 
 int main()
 {
-    map <string, Station> stations;
+    hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
+    map <string, User> users;
     map <string, Train> trains;
 
-    srand(0);
-    stations.insert({ "Viborg", Station("Viborg", "Russia, Leningradskaya oblast', Viborg", stations.size()) });
-    stations.insert({ "LadojVokz", Station("Ladojskii vokzal", "Russia, Leningradskaya oblast', Sankt-Peterburg", stations.size()) });
-    stations.insert({ "Perm2", Station("Perm 2", "Russia, Permskii krai, Perm", stations.size()) });
-    stations.insert({ "Kungur", Station("Kungur", "Russia, Permskii krai, Kungur", stations.size()) });
-    stations.insert({ "EkatPass", Station("Ekaterinburg Passajirski", "Russia, Sverdlovski krai, Ekaterinburg", stations.size()) });
-    stations.insert({ "KazanskiMosva", Station("Kazanski vokzal", "Russia, Moskovskaya oblast, Moskva", stations.size()) });
-    stations.insert({ "Adler", Station("Adler", "Russia, Krasnodarski krai, Adler", stations.size()) });
-    stations.insert({ "Omsk", Station("Omsk", "Russia, Omsk oblast, Omsk", stations.size()) });
-    stations.insert({ "Perm1", Station("Perm 1", "Russia, Permskii krai, Perm", stations.size()) });
-
-
-
-    stations.at("Perm2").set_new_location("Russia, Permskii krai, Perm");
-    cout << "Welcome to station " << stations.at("Perm2").get_name() << " located in " << stations.at("Perm2").get_location();
-
-    cout << "\n\n";
-    trains.insert({ "782R", Train("782R", "Moskva:Omsk", 7) });
-    Date departure0 = { 28, 9, 2024, 7, 48 };
-    Date departure1 = { 30, 9, 2024, 18, 30 };
-    Date departure2 = { 29, 9, 2024, 11, 55 };
-    Date departure3 = { 2, 10, 2024, 20, 00 };
-    Date departure4 = { 2, 10, 2024, 23, 13 };
-    Date departure5 = { 3, 10, 2024, 5, 18 };
-    Date departure6 = { 4, 10, 2024, 9, 26 };
-    Date departure7 = { 2, 10, 2024, 14, 31 };
-    Date departure8 = { 2, 10, 2024, 14, 43 };
-    Date departure9 = { 2, 10, 2024, 16, 17 };
-    Date departure10 = { 2, 10, 2024, 23, 11 };
-
-    trains.at("782R").add_to_schedule("KazanskiMosva", departure0);
-    trains.at("782R").add_to_schedule("LadojVokz", departure1);
-    trains.at("782R").add_to_schedule("Perm2", departure3);
-    trains.at("782R").add_to_schedule("Kungur", departure4);
-    trains.at("782R").add_to_schedule("EkatPass", departure5);
-
-    if (trains.at("782R").add_to_schedule("Omsk", departure6))
-    {
-        cout << "The train " << trains.at("782R").get_name() << " on route " << trains.at("782R").get_route() << " will arrive on next stations:\n";
-        vector <string> train_schedule = trains.at("782R").get_schedule();
-        for (vector<string>::iterator k = train_schedule.begin(); k != train_schedule.end(); ++k)
-        {
-            Date t = trains.at("782R").get_location_time(*k);
-            cout << t.day << "-" << t.month << "-" << t.year << " " << t.hour << ":" << t.minute << " --- " << stations.at(*k).get_name() << "\n";
-        }
-
-    }
-
-    trains.insert({ "865K", Train("865K", "Adler:Ekaterinburg", 7) });
-   
-    cout << "\n\n";
-    trains.insert({ "865K", Train("782R", "Moskva:Omsk", 7) });
-    trains.at("865K").add_to_schedule("Adler", departure0);
-    trains.at("865K").add_to_schedule("Viborg", departure1);
-    trains.at("865K").add_to_schedule("Perm1", departure7);
-    trains.at("865K").add_to_schedule("Perm2", departure8);
-    trains.at("865K").add_to_schedule("Kungur", departure9);
-
-    if (trains.at("865K").add_to_schedule("EkatPass", departure10))
-    {
-        cout << "The train " << trains.at("865K").get_name() << " on route " << trains.at("865K").get_route() << " will arrive on next stations:\n";
-        vector <string> train_schedule = trains.at("865K").get_schedule();
-        for (vector<string>::iterator k = train_schedule.begin(); k != train_schedule.end(); ++k)
-        {
-            Date t = trains.at("865K").get_location_time(*k);
-            cout << t.day << "-" << t.month << "-" << t.year << " " << t.hour << ":" << t.minute << " --- " << stations.at(*k).get_name() << "\n";
-        }
-
-    }
-
-    /*
-    Wagon wagon1(1, 50);
-    Wagon wagon2(2, 40);
-
-    cout << "\n";
-    if ((trains.at("782R").add_wagon(wagon1)) == 1)
-        cout << wagon1.get_number() << " wagon had been successfully added to " << trains.at("782R").get_name() << " train.\n";
-   
-    if ((trains.at("782R").add_wagon(wagon2)) == 1)
-        cout << wagon2.get_number() << " wagon had been successfully added to " << trains.at("782R").get_name() << " train.\n";
-   
-
-    cout << "The train number " << trains.at("782R").get_name() << " has " << trains.at("782R").get_wagon(0)->get_places() << " places in the " << trains.at("782R").get_wagon(0)->get_number() << " wagon.\n";
-    */
-    //работа с кассой
-    cout << "\n________________________________________________________________________________________________\n";
-    cout << "The price of a ticket depends on the route and the type of ticket.\nStudents and pensioners pay 1/2 of the cost. Veterans, disable people and children can travel free.\nShow your documents to verify and get the discount!\n";
-    string name, surname, document, birthday;
-    //string serie, number;
-    Ticket_Type tp;
+    CONSOLE_SCREEN_BUFFER_INFO start_attribute;
+    GetConsoleScreenBufferInfo(hStdout, &start_attribute);
     cin.ignore(0);
+    string response;
+    Admin* admin = Admin::get_instance();
+
+    Train const_train;
+    const_train.set_new_name("086R");
+    const_train.set_new_route("Moskva-Vladivostok");
+    const_train.set_new_wag_count(10);
+    const_train.add_wagons();
+    const_train.set_places_for_wagons(45);
+    const_train.add_to_schedule("Moskva", { 2, 10, 2024, 11, 36 });
+    const_train.add_to_schedule("Perm 2", { 4, 10, 2024, 13, 11 });
+    const_train.add_to_schedule("Ekaterinburg Passajirski", { 4, 10, 2024, 18, 01 });
+    const_train.add_to_schedule("Vladivostok", { 7, 10, 2024, 5, 29 });
+
+    trains["086R"] = const_train;
+
+    Train new_train;
+
+    new_train.set_new_name("751A");
+    new_train.set_new_route("Sankt-Peterburg-Omsk");
+    new_train.set_new_wag_count(6);
+    new_train.add_wagons();
+    new_train.set_places_for_wagons(50);
+    new_train.add_to_schedule("Sankt-Peterburg", { 2, 10, 2024, 12, 31 });
+    new_train.add_to_schedule("Perm 2", { 4, 10, 2024, 14, 1 });
+    new_train.add_to_schedule("Ekaterinburg Passajirski", { 4, 10, 2024, 17, 01 });
+    new_train.add_to_schedule("Omsk", { 5, 10, 2024, 23, 29 });
+
+    trains["751A"] = new_train;
+
+    User const_user;
+    const_user.set_name("Ivan");
+    const_user.set_surname("Ivanov");
+    const_user.set_birthday({ 23, 01, 1997, 0, 0 });
+    const_user.set_document("7452 657440");
+    const_user.set_username("1");
+    const_user.set_password("1");
+
+    users["1"] = const_user;
 
 
-    cout << "\n     Registration field:\nName:  ";
-    getline(cin, name);
-    cout << "Surname:   ";
-    getline(cin, surname);
-    cout << "Birthday(dd.mm.yyyy):  ";
-    getline(cin, birthday);
-    Date bd = day_verryfication(birthday, 0);
-    while (bd.day < 0) {
-        cout << "Birthday date incorrect. Enter again:  ";
-        getline(cin, birthday);
-        Date bd = day_verryfication(birthday, 0);
-        if (bd.day > 0) break;
-    }
-    int i = 0;
-    if (TODAY.year - bd.year < 14)
-    {
-        string certificate;
-        cout << "Birth certificate number (0AA-000000):     ";
-        getline(cin, certificate);
-        while (certificate_verryfication(certificate) == 0)
-        {
-            cout << "Number incorrect. Enter again:  ";
-            getline(cin, certificate);
-        }
-        tp = child;
-
-    }
-    else
-    {
-        cout << "Passport number (0000 000000):     ";
-        getline(cin, document);
-        
-        //cin >> serie >> number;
-        while (passport_verryfication(document) == 0)
-        {
-                cout << "Number incorrect. Enter again:  ";
-                getline(cin, document);
-        }
-        string category;
-        cout << "Enter discount category:\nstudent - 1, disabled - 2, veteran - 3, pensioner - 4\nIf none enter any key:     ";
-        getline(cin, category);
-
-        if (category == "1") tp = student;
-        if (category == "2") tp = disable;
-        if (category == "3") tp = veteran;
-        if (category == "4") tp = eldery;
-        if (!(category >= "1" && category <= "4")) tp = base;
-    }
-    User user(name, surname, bd, document, tp);
-    
-    cout << "_________________________________________________________________________________________________\n";
-    cout << "Heading from (Station name):   ";
-    string station1, station2;
-    getline(cin, station1);
-    cout << "Heading to (Station name):   ";
-    getline(cin, station2);
-    int found = 0;
-
-    for (map<string, Station>::iterator k = stations.begin(); k != stations.end(); ++k)
-    {
-        if (stations.at(k->first).get_name() == station1)
-        {
-            station1 = k->first;
-            found++;
-        }
-        if (stations.at(k->first).get_name() == station2)
-        {
-            station2 = k->first;
-            found++;
-        }
-    }
-    while (found != 2) {
-        cout << "Stations not found, try again. Heading from (Station name):   ";
-        getline(cin, station1);
-        cout << "Heading to (Station name):   ";
-        getline(cin, station2);
-        int found = 0;
-        for (map<string, Station>::iterator k = stations.begin(); k != stations.end(); ++k)
-        {
-            if (stations.at(k->first).get_name() == station1)
+    printf(Rus("Для покупки билета на поезд необходимо зайти в свою учетную запись\n"));
+    SetConsoleTextAttribute(hStdout, 11);
+    printf(Rus("\nМеню выбора:\n1 - Войти в существующую учетную запись\n2 - Создать учетную запись\nДругие кнопки завершат процесс"));
+    SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+    bool process = true;
+    while (process) {
+        SetConsoleTextAttribute(hStdout, 13);
+        printf(Rus("\n\nВведите команду: "));
+        SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+        getline(cin, response);
+        try {
+            switch (stoi(response))
             {
-                station1 = k->first;
-                found++;
-            }
-            if (stations.at(k->first).get_name() == station2)
+            case 1:
             {
-                station2 = k->first;
-                found++;
-            }
-        }
-    }
-    cout << "Departure date (dd.mm.yyyy):   ";
-    string day;
-    getline(cin, day);
-    Date date = day_verryfication(day, 1);
-    while (date.day == -1)
-    {
-        cout << "Error! Departure date (dd.mm.yyyy):   ";
-        getline(cin, day);
-        date = day_verryfication(day, 1);
-    }
+                string username, password;
+                printf(Rus("\nВведите Ваш юзернейм: "));
+                getline(cin, username);
+                printf(Rus("Введите Ваш пароль: "));
+                getline(cin, password);
+                const char* char_array = password.c_str();
+                long hashCode = DJBHash(char_array, password.length());
+                try {
+                    bool status = true;
+                    if (username == admin->get_username() && hashCode == admin->hashed_password_return())
+                    {
+                        string response2;
+                        printf(Rus("Вы зашли под учетной записью админа."));
+                        SetConsoleTextAttribute(hStdout, 11);
+                        printf(Rus("\nМеню выбора:\n1 - Добавить поезд\n2 - Удалить поезд\n3 - Отредактировать поезд\n0 - Выйти из учетной записи\nДругие кнопки завершат процесс\n"));
+                        while (status)
+                        {
+                            SetConsoleTextAttribute(hStdout, 2);
+                            printf(Rus("\nВведите команду админа: "));
+                            SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
 
-    vector <string> trains_needed;
-    for (map<string, Train>::iterator k = trains.begin(); k != trains.end(); ++k)
-    {
-        if (trains.at(k->second.get_name()).check_if_station_passes(station1) && (trains.at(k->second.get_name()).check_if_station_passes(station2)))
-        {
-            Date time = time_between_to_times(trains.at(k->second.get_name()).get_location_time(station2), trains.at(k->second.get_name()).get_location_time(station1));
-            Date needed = trains.at(k->second.get_name()).get_location_time(station1);
-            if ((time.day >= 0 && time.hour >= 0 && time.minute >= 0 && time.month >= 0 && time.year >= 0) && (needed.day == date.day && needed.month == date.month && needed.year == date.year))
-            {
-                trains_needed.push_back(k->first);
-                cout << trains.at(k->second.get_name()).get_name() << " train goes by route ";
-                vector <string> train_schedule = trains.at(k->second.get_name()).get_schedule();
-                for (vector<string>::iterator p = train_schedule.begin(); p != train_schedule.end(); ++p)
-                {
-                    Date t = trains.at(k->second.get_name()).get_location_time(*p);
-                    cout << stations.at(*p).get_name() << "->";
-                }
-                cout << "\nTime between " << station1 << " and " << station2 << " wil be " << time.day << " days " << time.hour << " hours " << time.minute << " minutes.\n\n";
-            }
+                            getline(cin, response2);
+                            try {
+                                switch (stoi(response2)) {
+                                case 1: {
+                                    string train_name, route, wagons_count, place_per_wag, stations;
+                                    int wc, ppw, s;
+                                    printf(Rus("Введите название поезда: "));
+                                    getline(cin, train_name);
+                                    printf(Rus("Введите название маршрута: "));
+                                    getline(cin, route);
+                                    try {
+                                        printf(Rus("Введите количество вагонов: "));
+                                        getline(cin, wagons_count);
+                                        printf(Rus("Введите количество мест в вагоне: "));
+                                        getline(cin, place_per_wag);
+                                        wc = stoi(wagons_count);
+                                        ppw = stoi(place_per_wag);
+                                        Train newTrain;
 
-        }
-    }
-    if (trains_needed.size() == 0)
-        cout << "No trains found, try travelling elsewhere!\n";
-    else
-    {
-    bool train_found = false;
+                                        newTrain.set_new_name(train_name);
+                                        newTrain.set_new_route(route);
+                                        newTrain.set_new_wag_count(wc);
+                                        newTrain.add_wagons();
+                                        newTrain.set_places_for_wagons(ppw);
+                                        printf(Rus("Введите количество станций, через которые едет поезд: "));
+                                        getline(cin, stations);
+                                        printf(Rus("Введите станции, формат: Станция=ДД.ММ.ГГГГ ЧЧ:ММ\n"));
 
-    while (train_found == false) {
-        cout << "Input name of the train:   ";
-        string train_number;
-        getline(cin, train_number);
+                                        s = stoi(stations);
+                                        string response2, nm;
+                                        Date dt;
+                                        for (int i = 0; i < s; i++) {
+                                            cout << i + 1 << ". - ";
+                                            getline(cin, response2);
+                                            nm = response2.substr(0, response2.find("="));
+                                            dt = create_Date_from_string(response2.substr(response2.find("=") + 1), 1);
+                                            newTrain.add_to_schedule(nm, dt);
+                                        }
+                                        trains[train_name] = newTrain;
+                                        printf(Rus("\nПоезд номер "));
+                                        cout << train_name;
+                                        printf(Rus(" успешно создан!\n"));
+                                        continue;
 
-        for (vector<string>::iterator k = trains_needed.begin(); k != trains_needed.end(); ++k)
-        {
-            if (*k == train_number)
-            {
-                train_found = true;
-                cout << "The train " << train_number << " has " << trains.at(*k).get_wagons_count() << " wagons and " << trains.at(*k).get_places_count() << " places.\n";
-                int free = trains.at(*k).get_free_places_count();
-                if (free) {
-                    cout << "There is " << free << " free places at the moment\n";
-                    trains.at(*k).draw_matrix();
-                    cout << "\nChoose a place (example (wagon row col) : 6 1 4):     ";
-                    string w, r, c;
-                    bool contin = true;
-                    while (contin) {
-                        cin >> w >> r >> c;
-                        try {
-                            int w0 = stoi(w), p0 = stoi(r) * 4 + stoi(c);
-                            if (w0 > 0 && w0 <= trains.at(*k).get_wagons_count() && p0 > 0 && p0 <= trains.at(*k).get_places_count() && (trains.at(*k).get_wagon(w0)).check_if_place_free(p0))
-                            {
-                                Ticket userTicket(w0, p0, *k, 100, station1, station2);
-                                user.add_ticket(userTicket);
-                                cout << "Ticket for train " << train_number << " has been successfully booked!" << endl;
-                                cout << "Passenger details: " << name << " " << surname  << " place " << p0 << " wagon " << w0 << endl;
-                                contin = false;
+                                    }
+                                    catch (...) {
+                                        printf(Rus("Админ ввел некорректные данные. ¯\_(-_-)_/¯"));
+                                        continue;
+                                    }
+
+                                }
+                                case 2: {
+                                    string train_name;
+                                    printf(Rus("Введите название поезда: "));
+                                    getline(cin, train_name);
+                                    try {
+                                        //*(trains.at(train_name))->~Train(); 
+                                        trains.erase(train_name);
+                                        printf(Rus("\nПоезд номер "));
+                                        cout << train_name;
+                                        printf(Rus(" успешно удален!\n"));
+                                        continue;
+                                    }
+                                    catch (...) {
+                                        printf(Rus("Админ ввел некорректные данные. ¯\_(-_-)_/¯"));
+                                        continue;
+                                    }
+                                }
+                                case 3: {
+                                    string train_name;
+                                    printf(Rus("Введите название поезда: "));
+                                    getline(cin, train_name);
+                                    try {
+                                        string name = trains[train_name].get_name(), response4;
+
+                                        printf(Rus("Поезд номер "));
+                                        cout << name;
+                                        printf(Rus(" едет по маршруту "));
+                                        cout << trains[train_name].get_route() << endl;
+                                        printf(Rus("1 - Поменять имя/маршрут\n2 - Поменять количество вагонов/мест\n3 - Поменять расписание\nВведите команду: "));
+                                        getline(cin, response4);
+                                        if (response4 == "1")
+                                        {
+                                            string ans;
+                                            printf(Rus("\nНовое название поезда: "));
+                                            getline(cin, ans);
+                                            trains[train_name].set_new_name(ans);
+                                            printf(Rus("Новый маршрут: "));
+                                            getline(cin, ans);
+                                            trains[train_name].set_new_route(ans);
+                                            SetConsoleTextAttribute(hStdout, 2);
+                                            printf(Rus("Апдейты успешно сохранены\n"));
+                                            SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                                        }
+                                        if (response4 == "2")
+                                        {
+                                            string ans;
+                                            printf(Rus("\nНовое количество вагонов: "));
+                                            getline(cin, ans);
+                                            trains[train_name].set_new_wag_count(stoi(ans));
+                                            printf(Rus("Новое количество мест: "));
+                                            getline(cin, ans);
+                                            trains[train_name].set_places_for_wagons(stoi(ans));
+                                            SetConsoleTextAttribute(hStdout, 2);
+                                            printf(Rus("Апдейты успешно сохранены\n"));
+                                            SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+
+                                        }
+                                        if (response4 == "3")
+                                        {
+                                            string input, ans, n, station, D, M, Y, h, m;
+                                            printf(Rus("\nНа данный момент поезд едет: \n"));
+                                            map <string, Date> train_schedule = trains[train_name].get_schedule();
+                                            for (map<string, Date>::iterator k = train_schedule.begin(); k != train_schedule.end(); ++k)
+                                            {
+                                                cout << k->second.day << "-" << k->second.month << "-" << k->second.year << " " << k->second.hour << ":" << k->second.minute << " --- " << k->first << "\n";
+                                            }
+                                            printf(Rus("\n1 - Добавить станцию\n2 - Удалить станцию\n"));
+                                            while (true) {
+                                                printf(Rus("Введите команду: "));
+                                                getline(cin, ans);
+                                                if (ans == "1")
+                                                {
+                                                    printf(Rus("Введите станцию, формат: Станция=ДД.ММ.ГГГГ ЧЧ:ММ\n"));
+                                                    getline(cin, input);
+                                                    string nm = input.substr(0, input.find("="));
+                                                    Date dt = create_Date_from_string(input.substr(input.find("=") + 1), 1);
+
+                                                    trains[train_name].add_to_schedule(nm, dt);
+                                                }
+                                                if (ans == "2") {
+                                                    printf(Rus("Введите станцию, которую нужно удалить: \n"));
+                                                    getline(cin, input);
+                                                    trains[input].~Train();
+                                                    trains.erase(input);
+                                                }
+                                                if (ans != "1" && ans != "2") break;
+
+                                            }
+
+                                            SetConsoleTextAttribute(hStdout, 2);
+                                            printf(Rus("Новое расписание поезда:\n"));
+                                            map <string, Date> sched = trains[train_name].get_schedule();
+                                            for (map<string, Date>::iterator k = sched.begin(); k != sched.end(); ++k)
+                                            {
+                                                cout << k->second.day << "-" << k->second.month << "-" << k->second.year << " " << k->second.hour << ":" << k->second.minute << " --- " << k->first << "\n";
+                                            }
+                                            SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                                        }
+                                        continue;
+
+
+                                    }
+                                    catch (...) {
+                                        printf(Rus("Админ ввел некорректные данные. ¯\_(-_-)_/¯"));
+                                        continue;
+                                    }
+                                }
+                                case 0: {printf(Rus("До свидания, "));
+                                    cout << admin->get_name() << " " << admin->get_surname() << "!\n";
+
+                                    status = false; break; }
+
+                                default: {
+                                    SetConsoleTextAttribute(hStdout, 4);
+                                    cout << Rus("Спасибо, что использовали наше приложение, до новых встреч!\n\n");
+                                    SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                                    status = false;
+                                    process = false;
+                                    continue;
+                                }
+                                }
                             }
-                            else cout << "\nChoose another place (example (wagon row col) : 6 1 4):     ";
-                        }
-                        catch (...) {
-                            cout << "\nChoose another place (example (wagon row col) : 6 1 4):     ";
-
+                            catch (...) {
+                                SetConsoleTextAttribute(hStdout, 4);
+                                cout << Rus("Спасибо, что использовали наше приложение, до новых встреч!\n\n");
+                                SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                                status = false;
+                                process = false;
+                                continue;
+                            }
                         }
                     }
+                    else {
+                        if (users.find(username) != users.end()) 
+                        {
+                            if (users[username].hashed_password_return() == hashCode)
+                            {
+                                string response2;
+                                printf(Rus("\nВы успешно вошли в свою учетную запись!\nДобро пожаловать назад, "));
+                                SetConsoleTextAttribute(hStdout, 2);
+                                cout << users[username].get_name() << " " << users[username].get_surname() << "!\n";
+                                SetConsoleTextAttribute(hStdout, 11);
+                                printf(Rus("Меню выбора:\n1 - Купить билет на поезд\n2 - Посмотреть расписание поезда\n3 - Посмотреть список поездов\n4 - Посмотреть список билетов\n5 - Вернуть билет\n0 - Выйти из учетной записи\nДругие кнопки завершат процесс"));
+                                SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                                bool run_under_user = true;
+                                while (run_under_user)
+                                {
+                                    SetConsoleTextAttribute(hStdout, 13);
+                                    printf(Rus("\n\nВведите команду: "));
+                                    SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                                    getline(cin, response2);
+                                    try {
+                                        switch (stoi(response2)) {
+                                        case 1: {
+                                            string train;
+                                            printf(Rus("Введите название поезда, на который хотите приобрести билет: "));
+                                            getline(cin, train);
+                                            bool cont = true;
+                                            if (trains.find(train) == trains.end())
+                                            {
+                                                SetConsoleTextAttribute(hStdout, 2);
+                                                printf(Rus("\nЭтого поезда нет в базе данных.\nПосмотрите список поездов с помощью кнопки 3 и выберите другой!"));
+                                                SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                                                cont = false;
+                                                continue;
+                                            }
+                                            for (Ticket* tik : users[username].get_tickets())
+                                                if (tik->get_wagon()->get_name() == train)
+                                                {
+                                                    SetConsoleTextAttribute(hStdout, 2);
+                                                    printf(Rus("У Вас уже есть билет на этот поезд\n"));
+                                                    SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                                                    cont = false;
+                                                    break;
+                                                }
 
+                                            if (cont) {
+                                                try {
+                                                    string ww, p0, fr, to, tpp;
+                                                    printf(Rus("Откуда поедете: "));
+                                                    getline(cin, fr);
+                                                    printf(Rus("Куда поедете: "));
+                                                    getline(cin, to);
+                                                    if (!trains[train].check_if_passes(fr) || !trains[train].check_if_passes(to)) {
+                                                        SetConsoleTextAttribute(hStdout, 2);
+                                                        printf(Rus("Этот поезд не проходит данные станции."));
+                                                        SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                                                        break;
+                                                    }
+                                                    if (fr == to) {
+                                                        SetConsoleTextAttribute(hStdout, 2);
+                                                        printf(Rus("Вы действительно хотите проехать 0 станций?)"));
+                                                        SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                                                        break;
+                                                    }
+                                                    if (Check_if_greater_date(trains[train].get_location_time(fr), trains[train].get_location_time(to))) {
+                                                        SetConsoleTextAttribute(hStdout, 2);
+                                                            printf(Rus("Поезд едет в другую сторону"));
+                                                            SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                                                            break;
+                                                    }
+                                                    printf(Rus("Введите тип билета: "));
+                                                    printf(Rus("\n1 - студент\t2 - инвалид\n3 - ветеран\t4 - пенсионер\nДругое - обычный билет: "));
+                                                    getline(cin, tpp);
+                                                    Ticket_Type typp;
+                                                    if (tpp == "1") typp = student;
+                                                    if (tpp == "2") typp = disable;
+                                                    if (tpp == "3") typp = veteran;
+                                                    if (tpp == "4") typp = pensioner;
+                                                    if (!(tpp >= "1" && tpp <= "4")) typp = base;
+                                                    printf(Rus("В поезде есть %d вагонов, в каком хотите расположиться? "), trains[train].get_wagons_count());
+                                                    getline(cin, ww);
+
+                                                    if (stoi(ww) <= 0 && stoi(ww) > trains[train].get_wagons_count()) {
+                                                        SetConsoleTextAttribute(hStdout, 2);
+                                                        printf(Rus("\nВведены некорректные данные, проверьте еще раз какое место Вы хотите занять."));
+                                                        SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                                                        break;
+                                                    }
+                                                    Wagon* wag = trains[train].get_wagon(stoi(ww));
+
+                                                    printf(Rus("Введите место (1 - %d): "), wag->get_places());
+                                                    getline(cin, p0);
+
+                                                    while (!wag->check_if_place_free(stoi(p0))) {
+                                                        printf(Rus("Места нет или уже занято. Выберите другое: "));
+                                                        getline(cin, p0);
+                                                    }
+
+                                                    Ticket ticket;
+                                                    ticket.set_wagon(wag);
+                                                    ticket.set_place_number(stoi(p0));
+                                                    ticket.set_from_to(fr, to);
+                                                    ticket.set_type(typp);
+
+                                                    wag->set_occupation(stoi(p0));
+
+                                                    users[username].add_ticket(&ticket);
+
+                                                    printf(Rus("\nВы успешно купили билет!"));
+                                                    continue;
+                                                }
+
+                                                catch (...) {
+                                                    SetConsoleTextAttribute(hStdout, 2);
+                                                    printf(Rus("\nВведены некорректные данные, проверьте еще раз какое место Вы хотите занять."));
+                                                    SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                                                    continue;
+                                                }
+                                            }
+                                        }
+                                        case 2: {
+                                            string train;
+                                            printf(Rus("Введите название поезда: "));
+                                            getline(cin, train);
+                                            if (trains.find(train) == trains.end())
+                                            {
+                                                SetConsoleTextAttribute(hStdout, 2);
+                                                printf(Rus("\nЭтого поезда нет в базе данных."));
+                                                SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                                                continue;
+                                            }
+                                            printf(Rus("\nПоезд едет по маршруту: \n"));
+                                            vector<pair<string, Date>> train_schedule = trains[train].get_sorted_schedule();
+                                            for (vector<pair<string, Date>>::iterator k = train_schedule.begin(); k != train_schedule.end(); ++k)
+                                                cout << k->second.day << "-" << k->second.month << "-" << k->second.year << " " << k->second.hour << ":" << k->second.minute << " --- " << k->first << "\n";                                          
+                                            continue;
+                                        }
+                                        case 3: {
+                                            printf(Rus("\nВот список поездов: \n"));
+                                            for (map<string, Train>::iterator k = trains.begin(); k != trains.end(); ++k)
+                                            {
+                                                printf(Rus("Поезд номер "));
+                                                cout << k->first;
+                                                printf(Rus(", следующий по маршруту "));
+                                                cout << k->second.get_route() << endl;
+                                            }
+                                            continue;
+                                        }
+                                        case 4: {
+                                            printf(Rus("\nВот список Ваших билетов: \n"));
+                                            vector <Ticket*> tick = users[username].get_tickets();
+                                            for (vector<Ticket*>::iterator k = tick.begin(); k != tick.end(); ++k)
+                                            {
+                                                printf(Rus("Билет номер "));
+                                                cout << (*k)->get_ticket_number();
+                                                printf(Rus(" на поезд номер "));
+                                                cout << (*k)->get_wagon()->get_name() << endl;
+                                            }
+                                            continue;
+                                        }
+                                        case 5: {
+                                            string train;
+                                            printf(Rus("Введите название поезда, у которого хотите вернуть билет: "));
+                                            getline(cin, train);
+                                            bool cont = true;
+                                            for (Ticket* tik : users[username].get_tickets())
+                                            {
+                                                if (tik->get_wagon()->get_name() == train)
+                                                {
+                                                    printf(Rus("Вы вернули билет номер %d"), tik->get_ticket_number());
+                                                    tik->get_wagon()->free_place(tik->get_place_number());
+                                                    users[username].delete_ticket(tik);
+                                                    cout << "a";
+                                                    delete tik;
+                                                    cont = false;
+                                                    break;
+                                                }
+
+                                            }
+                                            if (cont)  printf(Rus("Мы не нашли ваш билет на этот поезд"));
+                                            continue;
+
+                                        }
+                                        default: {
+                                            printf(Rus("Вы успешно вышли из своей учетной записи!\nДо свидания, "));
+                                            SetConsoleTextAttribute(hStdout, 2);
+                                            cout << users[username].get_name() << " " << users[username].get_surname() << "!\n";
+                                            SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                                            run_under_user = false;
+                                            break;
+                                        }
+                                        }
+                                    }
+                                    catch (...) {
+                                        printf(Rus("Вы успешно вышли из своей учетной записи!\nДо свидания, "));
+                                        SetConsoleTextAttribute(hStdout, 2);
+                                        cout << users[username].get_name() << " " << users[username].get_surname() << "!";
+                                        SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                                        run_under_user = false;
+                                        break;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                SetConsoleTextAttribute(hStdout, 2);
+                                printf(Rus("\nВы ввели неправильный пароль."));
+                                SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                                continue;
+                            }
+                        }
+                        else
+                        {
+                            SetConsoleTextAttribute(hStdout, 2);
+                            printf(Rus("\nПользователя с таким юзернеймом не существует."));
+                            SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                            continue;
+                        }
+
+                    }
                 }
-                break;
+                catch (...) {
+                    SetConsoleTextAttribute(hStdout, 2);
+                    printf(Rus("\nПроизошел сбой при входе, попробуйте заново."));
+                    SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                    continue;
+                }
+
+                continue;
             }
-            if (train_found)
-                break;
+            case 2:
+            {
+                string username, password, name, surname, birthday, document;
+                printf(Rus("\nДобро пожаловать в наше приложение, давайте знакомиться!\nВведите Ваше имя: "));
+                getline(cin, name);
+                printf(Rus("Введите Вашу фамилию: "));
+                getline(cin, surname);
+                printf(Rus("Введите Вашу дату рождения (формат: ДД.ММ.ГГГГ): "));
+                getline(cin, birthday);
+                printf(Rus("Введите Ваш паспорт (формат: XXXX XXXXXX): "));
+                getline(cin, document);
+                if (check_date_validation(birthday) && check_document_validation(document)) {
+                    User newUser;
+                    newUser.set_name(name);
+                    newUser.set_surname(surname);
+                    newUser.set_birthday(create_Date_from_string(birthday, 0));
+                    newUser.set_document(document);
+                    printf(Rus("Отлично! Почти всё!\nВведите Ваш юзернейм: "));
+                    getline(cin, username);
+                    while (users.find(username) != users.end())
+                    {
+                        printf(Rus("Юзейрнейм уже занят, введите другой юзернейм: "));
+                        getline(cin, username);
+
+                    }
+                    newUser.set_username(username);
+                    printf(Rus("Установите пароль дя входа: "));
+                    getline(cin, password);
+                    newUser.set_password(password);
+                    users.insert({ username, newUser });
+                    cout << username;
+                    printf(Rus(" был успешно добавлен в базу пользователей!"));
+                    continue;
+                }
+                else {
+                    SetConsoleTextAttribute(hStdout, 11);
+                    printf(Rus("\nВы ввели данные некорректно."));
+                    SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                    continue;
+                }
+
+
+            }
+            default:
+            {
+                SetConsoleTextAttribute(hStdout, 4);
+                cout << Rus("Спасибо, что использовали наше приложение, до новых встреч!\n\n");
+                SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+                process = false;
+                continue; }
+            }
         }
-        if (!train_found)
-            cout << "Train not found. Please check the train name and try again." << endl;
+        catch (invalid_argument & e) {
+            SetConsoleTextAttribute(hStdout, 4);
+            cout << Rus("Спасибо, что использовали наше приложение, до новых встреч!\n\n");
+            SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+            process = false;
+            continue;
+        }
+
 
     }
-    }
+
+    SetConsoleTextAttribute(hStdout, start_attribute.wAttributes);
+    system("pause");
     return 0;
 }
